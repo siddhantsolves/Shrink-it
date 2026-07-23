@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OMNI SHRINK - Brutalist Compressor</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+
+    <style>
+        /* Base Reset */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: #e5e5e5;
+            color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        /* Minimalist + Brutalist Container */
+        .container {
+            background: #fff;
+            border: 4px solid #000;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 12px 12px 0px #000;
+        }
+
+        h1 { 
+            font-weight: 900;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        /* Tabs System */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 2rem;
+            border-bottom: 4px solid #000;
+            padding-bottom: 1rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.8rem;
+            background: #fff;
+            border: 4px solid #000;
+            font-weight: 900;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #000;
+            transition: all 0.1s;
+        }
+
+        .tab-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0px #000;
+        }
+
+        .tab-btn.active {
+            background: #ccff00; /* Neon Yellow Active Tab */
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Shared Form Elements */
+        .form-group { margin-bottom: 2rem; }
+        
+        label.step-label { 
+            display: block; 
+            font-weight: 900; 
+            font-size: 1rem;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem; 
+        }
+
+        input[type="file"] { display: none; }
+        
+        .file-upload-label {
+            display: block;
+            padding: 1.5rem;
+            background: #fff;
+            border: 4px solid #000;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            box-shadow: 6px 6px 0px #000;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        
+        .file-upload-label:hover {
+            background: #000;
+            color: #fff;
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0px #ccff00;
+        }
+
+        .file-upload-label span { display: block; }
+        .file-name-display {
+            margin-top: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.2rem;
+            font-family: monospace;
+            font-weight: bold;
+            border: 4px solid #000;
+            background: #fff;
+            box-shadow: 6px 6px 0px #000;
+            outline: none;
+        }
+
+        input[type="number"]:focus { background: #ff00ff; color: white;}
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            border: 4px solid #000;
+            height: 40px;
+            box-shadow: 6px 6px 0px #000;
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 40px;
+            width: 30px;
+            background: #000;
+            cursor: w-resize;
+            border: 2px solid #fff;
+        }
+
+        .flex-between { 
+            display: flex; 
+            justify-content: space-between; 
+            font-family: monospace;
+            font-size: 0.85rem; 
+            font-weight: bold;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            width: 100%;
+            padding: 1.2rem;
+            background: #000;
+            border: 4px solid #000;
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.3);
+            margin-bottom: 1rem;
+        }
+        
+        .action-btn:hover:not(:disabled) { 
+            background: #00ffcc; /* Neon Cyan */
+            color: #000;
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0px #000;
+        }
+
+        .action-btn:disabled { 
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed; 
+            box-shadow: none;
+            transform: translate(4px, 4px);
+        }
+
+        /* Status Output */
+        .status { 
+            font-family: monospace;
+            font-size: 1rem; 
+            text-align: center; 
+            font-weight: bold;
+            text-transform: uppercase;
+            min-height: 20px;
+        }
+        
+        .status.success { color: #000; background: #00ffcc; padding: 0.5rem; border: 3px solid #000;}
+        .status.warn { color: #000; background: #ccff00; padding: 0.5rem; border: 3px solid #000;}
+        .status.error { color: #fff; background: #ff0000; padding: 0.5rem; border: 3px solid #000;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>OMNI SHRINK</h1>
+    
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" data-target="pdf-section">PDF</button>
+        <button class="tab-btn" data-target="img-section">IMAGE</button>
+        <button class="tab-btn" data-target="vid-section">VIDEO</button>
+    </div>
+
+    <!-- ==================== PDF COMPRESSOR ==================== -->
+    <div id="pdf-section" class="tab-content active">
+        <div class="form-group">
+            <label class="step-label">1. Select Document</label>
+            <label for="pdfInput" class="file-upload-label" style="hover: {background: #ccff00}">
+                <span id="pdfActionText">Choose PDF</span>
+                <span id="pdfName" class="file-name-display">NO_FILE.PDF</span>
+            </label>
+            <input type="file" id="pdfInput" accept="application/pdf">
+        </div>
+
+        <div class="form-group">
+            <label class="step-label" for="pdfQuality">2. Compression Level</label>
+            <input type="range" id="pdfQuality" min="0.1" max="1.0" step="0.1" value="0.6">
+            <div class="flex-between">
+                <span>Max Squash</span>
+                <span><span id="pdfQualityVal">60</span>% Quality</span>
+                <span>Min Squash</span>
+            </div>
+        </div>
+
+        <button id="compressPdfBtn" class="action-btn">Shrink PDF</button>
+        <div id="pdfStatus" class="status"></div>
+    </div>
+
+    <!-- ==================== IMAGE COMPRESSOR ==================== -->
+    <div id="img-section" class="tab-content">
+        <div class="form-group">
+            <label class="step-label">1. Select Image</label>
+            <label for="imgInput" class="file-upload-label">
+                <span id="imgActionText">Choose Image</span>
+                <span id="imgName" class="file-name-display">NO_FILE.EXT</span>
+            </label>
+            <input type="file" id="imgInput" accept="image/*">
+        </div>
+
+        <div class="form-group">
+            <label class="step-label" for="imgTargetKB">2. Target Size (KB)</label>
+            <input type="number" id="imgTargetKB" value="500" min="10">
+        </div>
+
+        <button id="compressImgBtn" class="action-btn">Shrink Image</button>
+        <div id="imgStatus" class="status"></div>
+    </div>
+
+    <!-- ==================== VIDEO COMPRESSOR ==================== -->
+    <div id="vid-section" class="tab-content">
+        <div class="form-group">
+            <label class="step-label">1. Select Video</label>
+            <label for="vidInput" class="file-upload-label">
+                <span id="vidActionText">Choose Video</span>
+                <span id="vidName" class="file-name-display">NO_FILE.MP4</span>
+            </label>
+            <input type="file" id="vidInput" accept="video/*">
+        </div>
+
+        <div class="form-group">
+            <label class="step-label" for="vidTargetMB">2. Target Size (MB)</label>
+            <input type="number" id="vidTargetMB" value="10" min="1">
+        </div>
+
+        <button id="compressVidBtn" class="action-btn">Shrink Video</button>
+        <div id="vidStatus" class="status"></div>
+    </div>
+
+</div>
+
+<script>
+    // ==========================================
+    // SHARED UTILITIES & TAB LOGIC
+    // ==========================================
+    const tabs = document.querySelectorAll('.tab-btn');
+    const contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.target).classList.add('active');
+        });
+    });
+
+    function setStatus(element, msg, type = '') {
+        element.textContent = msg;
+        element.className = 'status ' + type;
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // File Input Name Updaters
+    function setupFileInput(inputId, nameId, actionId, typeLabel) {
+        document.getElementById(inputId).addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                document.getElementById(nameId).textContent = e.target.files[0].name.toUpperCase();
+                document.getElementById(actionId).textContent = typeLabel + " LOADED";
+            } else {
+                document.getElementById(nameId).textContent = "NO_FILE";
+                document.getElementById(actionId).textContent = "CHOOSE " + typeLabel;
+            }
+        });
+    }
+    setupFileInput('pdfInput', 'pdfName', 'pdfActionText', 'PDF');
+    setupFileInput('imgInput', 'imgName', 'imgActionText', 'IMAGE');
+    setupFileInput('vidInput', 'vidName', 'vidActionText', 'VIDEO');
+
+
+    // ==========================================
+    // PDF LOGIC
+    // ==========================================
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    const { jsPDF } = window.jspdf;
+
+    const pdfQuality = document.getElementById('pdfQuality');
+    const pdfQualityVal = document.getElementById('pdfQualityVal');
+    
+    pdfQuality.addEventListener('input', (e) => {
+        pdfQualityVal.textContent = Math.round(e.target.value * 100);
+    });
+
+    document.getElementById('compressPdfBtn').addEventListener('click', async (e) => {
+        const file = document.getElementById('pdfInput').files[0];
+        const statusDiv = document.getElementById('pdfStatus');
+        const btn = e.target;
+
+        if (!file) return setStatus(statusDiv, '[ERROR: NO PDF]', 'error');
+        
+        btn.disabled = true;
+        setStatus(statusDiv, 'READING DATA...');
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const totalPages = pdf.numPages;
+            const quality = parseFloat(pdfQuality.value);
+            let newPdf = null;
+
+            for (let i = 1; i <= totalPages; i++) {
+                setStatus(statusDiv, `CRUNCHING PAGE ${i}/${totalPages}...`);
+                const page = await pdf.getPage(i);
+                const scale = 1.5; 
+                const viewport = page.getViewport({ scale: scale });
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                const imgData = canvas.toDataURL('image/jpeg', quality);
+                const pdfWidth = viewport.width / scale;
+                const pdfHeight = viewport.height / scale;
+
+                if (i === 1) {
+                    newPdf = new jsPDF({
+                        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                        unit: 'pt',
+                        format: [pdfWidth, pdfHeight]
+                    });
+                } else {
+                    newPdf.addPage([pdfWidth, pdfHeight], pdfWidth > pdfHeight ? 'landscape' : 'portrait');
+                }
+                newPdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+
+            setStatus(statusDiv, 'PACKAGING...');
+            const newName = `${file.name.replace(/\.[^/.]+$/, "")}_SHRUNK.pdf`;
+            newPdf.save(newName);
+            setStatus(statusDiv, '[SUCCESS: DOWNLOADED]', 'success');
+
+        } catch (error) {
+            setStatus(statusDiv, '[FATAL ERROR]', 'error');
+            console.error(error);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+
+    // ==========================================
+    // IMAGE LOGIC (Binary Search)
+    // ==========================================
+    const canvasToBlob = (canvas, mimeType, quality) => {
+        return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), mimeType, quality));
+    };
+
+    document.getElementById('compressImgBtn').addEventListener('click', async (e) => {
+        const file = document.getElementById('imgInput').files[0];
+        const statusDiv = document.getElementById('imgStatus');
+        const targetBytes = parseInt(document.getElementById('imgTargetKB').value) * 1024;
+        const btn = e.target;
+
+        if (!file) return setStatus(statusDiv, '[ERROR: NO IMAGE]', 'error');
+        if (isNaN(targetBytes) || targetBytes <= 0) return setStatus(statusDiv, '[ERROR: INVALID SIZE]', 'error');
+        if (file.size <= targetBytes) {
+            setStatus(statusDiv, '[WARN: ALREADY SMALLER]', 'warn');
+            return triggerDownload(file, file.name);
+        }
+
+        btn.disabled = true;
+        setStatus(statusDiv, 'RUNNING ALGORITHM...');
+
+        try {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await new Promise(resolve => img.onload = resolve);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            let minQ = 0.0, maxQ = 1.0, bestBlob = null, bestDiff = Infinity;
+            let attempts = 0;
+            setStatus(statusDiv, 'OPTIMIZING...');
+
+            while (attempts < 8) {
+                let testQ = (minQ + maxQ) / 2;
+                let blob = await canvasToBlob(canvas, 'image/webp', testQ);
+                let diff = targetBytes - blob.size;
+
+                if (blob.size <= targetBytes) {
+                    if (diff < bestDiff) { bestDiff = diff; bestBlob = blob; }
+                    minQ = testQ;
+                } else {
+                    maxQ = testQ;
+                }
+                attempts++;
+            }
+
+            if (!bestBlob) {
+                bestBlob = await canvasToBlob(canvas, 'image/webp', 0.01);
+                setStatus(statusDiv, `[WARN: SMALLEST IS ${(bestBlob.size / 1024).toFixed(1)}KB]`, 'warn');
+            } else {
+                setStatus(statusDiv, `[SUCCESS: ${(bestBlob.size / 1024).toFixed(1)}KB]`, 'success');
+            }
+
+            triggerDownload(bestBlob, `${file.name.replace(/\.[^/.]+$/, "")}_SHRUNK.webp`);
+        } catch (error) {
+            setStatus(statusDiv, '[FATAL ERROR]', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+
+    // ==========================================
+    // VIDEO LOGIC (FFmpeg WASM)
+    // ==========================================
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: false });
+    let videoDuration = 0;
+
+    document.getElementById('vidInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const tempVideo = document.createElement('video');
+            tempVideo.preload = 'metadata';
+            tempVideo.src = URL.createObjectURL(file);
+            tempVideo.onloadedmetadata = () => {
+                videoDuration = tempVideo.duration;
+                URL.revokeObjectURL(tempVideo.src);
+            };
+        }
+    });
+
+    document.getElementById('compressVidBtn').addEventListener('click', async (e) => {
+        const file = document.getElementById('vidInput').files[0];
+        const targetMB = parseFloat(document.getElementById('vidTargetMB').value);
+        const statusDiv = document.getElementById('vidStatus');
+        const btn = e.target;
+
+        if (!file) return setStatus(statusDiv, '[ERROR: NO VIDEO]', 'error');
+        if (isNaN(targetMB) || targetMB <= 0) return setStatus(statusDiv, '[ERROR: INVALID SIZE]', 'error');
+        if (!videoDuration) return setStatus(statusDiv, '[ERROR: NO DURATION DATA]', 'error');
+
+        btn.disabled = true;
+        setStatus(statusDiv, 'INITIALIZING ENGINE...');
+
+        try {
+            if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+
+            const targetBits = targetMB * 8 * 1024 * 1024;
+            const totalKbps = Math.floor((targetBits / videoDuration) / 1024);
+            const audioKbps = 128;
+            let videoKbps = totalKbps - audioKbps;
+            if (videoKbps < 100) videoKbps = 100;
+
+            setStatus(statusDiv, `ENCODING @ ${videoKbps} KBPS...`);
+
+            await ffmpeg.run(
+                '-i', 'input.mp4',
+                '-b:v', `${videoKbps}k`,
+                '-maxrate', `${videoKbps * 1.2}k`,
+                '-bufsize', `${videoKbps * 2}k`,
+                '-b:a', `${audioKbps}k`,
+                '-preset', 'ultrafast',
+                'output.mp4'
+            );
+
+            const data = ffmpeg.FS('readFile', 'output.mp4');
+            const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
+            
+            setStatus(statusDiv, `[SUCCESS: ${(compressedBlob.size / (1024 * 1024)).toFixed(2)} MB]`, 'success');
+            triggerDownload(compressedBlob, `${file.name.replace(/\.[^/.]+$/, "")}_SHRUNK.mp4`);
+
+            ffmpeg.FS('unlink', 'input.mp4');
+            ffmpeg.FS('unlink', 'output.mp4');
+
+        } catch (error) {
+            console.error(error);
+            setStatus(statusDiv, '[ENGINE FAULT OR MEMORY LIMIT]', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+</script>
+
+</body>
+</html>
