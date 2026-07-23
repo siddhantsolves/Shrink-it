@@ -1,1 +1,1 @@
-# Shrink-it
+https://siddhantsolves.github.io/Shrink-it/
